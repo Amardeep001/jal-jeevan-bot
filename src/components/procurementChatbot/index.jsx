@@ -13,6 +13,8 @@ import "jspdf-autotable";
 import html2canvas from "html2canvas";
 import MicIcon from "@mui/icons-material/Mic";
 import SettingsVoiceIcon from "@mui/icons-material/SettingsVoice";
+import VolumeUpIcon from "@mui/icons-material/VolumeUp";
+import VolumeOffIcon from "@mui/icons-material/VolumeOff";
 
 // common template ui for both tabs
 const JalJeevanBot = () => {
@@ -31,6 +33,8 @@ const JalJeevanBot = () => {
   const [isListening, setIsListening] = useState(false);
   const [textSpeechResult, setTextSpeechResult] = useState(null);
   const [textSpeechInsight, setTextSpeechInsight] = useState(null);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const utteranceRef = useRef(null);
 
   const handleKeyDown = (event) => {
     if (event.key === "Enter") {
@@ -51,9 +55,19 @@ const JalJeevanBot = () => {
     setSearchText("");
     setLoading(true);
     try {
-      let res = await axios.post(`${API_URL}analyze`, {
-        question: searchText || arr[arr.length - 1],
-      });
+      let res = await axios.post(
+        `${API_URL}analyze`,
+        {
+          question: searchText || arr[arr.length - 1],
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            // Add any other headers your API might require
+          },
+          // timeout: 60000,
+        }
+      );
 
       if (res) {
         let outputArr = gadChatbotOutput;
@@ -74,7 +88,7 @@ const JalJeevanBot = () => {
         setLoading(false);
       }
     } catch (error) {
-      console.log("there is some error", error);
+      console.log("there is some error", error.message);
       setLoading(false);
       let outputArr = gadChatbotOutput;
       outputArr.push("something went wrong");
@@ -192,18 +206,44 @@ const JalJeevanBot = () => {
     }
   };
 
+  const handleSpeak = () => {
+    if (!isSpeaking) {
+      const totalSpeechText = textSpeechInsight + " " + textSpeechResult;
+      const utterance = new SpeechSynthesisUtterance(totalSpeechText);
+      utterance.onend = () => {
+        setIsSpeaking(false);
+      };
+      utteranceRef.current = utterance;
+      window.speechSynthesis.speak(utterance);
+      setIsSpeaking(true);
+    }
+  };
+
+  const handleMute = () => {
+    if (isSpeaking) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+    }
+  };
+
   useEffect(() => {
-    if ("speechSynthesis" in window && textSpeechResult) {
-      const utterance = new SpeechSynthesisUtterance(textSpeechResult);
-      window.speechSynthesis.speak(utterance);
-      setTextSpeechResult(null);
-    }
-    if ("speechSynthesis" in window && textSpeechInsight) {
-      const utterance = new SpeechSynthesisUtterance(textSpeechInsight);
-      window.speechSynthesis.speak(utterance);
-      setTextSpeechInsight(null);
-    }
-  }, [textSpeechResult, textSpeechInsight]);
+    return () => {
+      window.speechSynthesis.cancel();
+    };
+  }, []);
+
+  // useEffect(() => {
+  //   if ("speechSynthesis" in window && textSpeechResult) {
+  //     const utterance = new SpeechSynthesisUtterance(textSpeechResult);
+  //     window.speechSynthesis.speak(utterance);
+  //     setTextSpeechResult(null);
+  //   }
+  //   if ("speechSynthesis" in window && textSpeechInsight) {
+  //     const utterance = new SpeechSynthesisUtterance(textSpeechInsight);
+  //     window.speechSynthesis.speak(utterance);
+  //     setTextSpeechInsight(null);
+  //   }
+  // }, [textSpeechResult, textSpeechInsight]);
 
   useEffect(() => {
     if (gadChatbotInput.length) {
@@ -360,12 +400,23 @@ const JalJeevanBot = () => {
                               Download PDF
                             </button>
                             <h1 className="text-[20px] mt-2 font-medium ">
-                              Result
+                              Insights
                             </h1>
-                            <p>{gadChatbotOutput[index].result}</p>
+                            <div>
+                              {isSpeaking ? (
+                                <button className="mr-1 " onClick={handleMute}>
+                                  <VolumeUpIcon />
+                                </button>
+                              ) : (
+                                <button className="mr-1 " onClick={handleSpeak}>
+                                  <VolumeOffIcon />
+                                </button>
+                              )}
+                              {gadChatbotOutput[index].insights}
+                            </div>
                           </div>
                           <div className="mt-5 flex gap-x-[10px] ">
-                            <div className="w-[50%] max-h-[300px] px-[10px] py-[20px] text-center border rounded-lg bg-gray-50 shadow-md ">
+                            <div className="w-[50%] max-h-[300px] overflow-auto px-[10px] py-[20px] text-center border rounded-lg bg-gray-50 shadow-md ">
                               <img src={baseImage[index]} alt="error" />
                             </div>
                             <div className="w-[50%] max-h-[300px] overflow-auto px-[10px] py-[20px] text-center border rounded-lg bg-gray-50 shadow-md ">
@@ -407,14 +458,12 @@ const JalJeevanBot = () => {
                             </div>
                           </div>
                           <div className="w-full mt-[20px] px-[10px] py-[10px] text-center border rounded-lg bg-gray-50 shadow-md ">
-                            <h1 className="text-[20px] font-medium ">
-                              Insights
-                            </h1>
-                            <p>{gadChatbotOutput[index].insights}</p>
+                            <h1 className="text-[20px] font-medium ">Result</h1>
+                            <p>{gadChatbotOutput[index].result}</p>
                           </div>
                           <div className="mt-3 flex gap-x-1 ">
                             <CopyToClipboard
-                              text={gadChatbotOutput[index]?.gfr}
+                              text={gadChatbotOutput[index]?.insights}
                               onCopy={() =>
                                 handleCopy(gadChatbotOutput[index]?.insights)
                               }
