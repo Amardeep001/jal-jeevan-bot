@@ -25,7 +25,7 @@ function App() {
   };
 
   return (
-    <div className="h-[100vh] relative flex bg-gradient-to-r from-[#249EE3] to-[#3874D3] gap-x-3 p-5 ">
+    <div className="h-[100vh] relative flex bg-gradient-to-r from-[#249EE3] to-[#3874D3] gap-x-3 p-4 ">
       <div className="w-[20%] px-4 py-7 flex flex-col ">
         <div className="">
           <div className="flex items-center justify-center gap-x-2">
