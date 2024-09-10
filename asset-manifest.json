@@ -1,0 +1,19 @@
+{
+  "files": {
+    "main.css": "/jal-jeevan-bot/static/css/main.98376536.css",
+    "main.js": "/jal-jeevan-bot/static/js/main.4db498fb.js",
+    "static/js/213.12d448db.chunk.js": "/jal-jeevan-bot/static/js/213.12d448db.chunk.js",
+    "static/js/732.63065635.chunk.js": "/jal-jeevan-bot/static/js/732.63065635.chunk.js",
+    "static/js/453.fad906d1.chunk.js": "/jal-jeevan-bot/static/js/453.fad906d1.chunk.js",
+    "index.html": "/jal-jeevan-bot/index.html",
+    "main.98376536.css.map": "/jal-jeevan-bot/static/css/main.98376536.css.map",
+    "main.4db498fb.js.map": "/jal-jeevan-bot/static/js/main.4db498fb.js.map",
+    "213.12d448db.chunk.js.map": "/jal-jeevan-bot/static/js/213.12d448db.chunk.js.map",
+    "732.63065635.chunk.js.map": "/jal-jeevan-bot/static/js/732.63065635.chunk.js.map",
+    "453.fad906d1.chunk.js.map": "/jal-jeevan-bot/static/js/453.fad906d1.chunk.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.98376536.css",
+    "static/js/main.4db498fb.js"
+  ]
+}
