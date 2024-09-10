@@ -7,13 +7,11 @@ import { ThreeDotsLoader } from "../commonComponent/loader";
 import { API_URL } from "../../utils/constants";
 import bharatLogo from "../../assets/images/goldenemb.png";
 import waterDropLogo from "../../assets/images/waterdrop.png";
-import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
-import "jspdf-autotable";
 import MicIcon from "@mui/icons-material/Mic";
 import SettingsVoiceIcon from "@mui/icons-material/SettingsVoice";
 import VolumeUpIcon from "@mui/icons-material/VolumeUp";
 import VolumeOffIcon from "@mui/icons-material/VolumeOff";
+import generatePdf from "../commonComponent/pdfGenerator";
 
 // common template ui for both tabs
 const JalJeevanBot = () => {
@@ -21,6 +19,7 @@ const JalJeevanBot = () => {
   const inputRef = useRef(null);
   const [searchText, setSearchText] = useState("");
   const [loading, setLoading] = useState(false);
+  const [streamLoading, setStreamLoading] = useState(false);
   // const gadInput = JSON.parse(localStorage.getItem("procurementInput"));
   // const gadOutput = JSON.parse(localStorage.getItem("procurementOutput"));
   const [gadChatbotInput, setGadChatbotInput] = useState([]);
@@ -30,12 +29,15 @@ const JalJeevanBot = () => {
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const utteranceRef = useRef(null);
+  const [messages, setMessages] = useState([]);
 
   const handleKeyDown = (event) => {
     if (event.key === "Enter") {
       handleSearch();
     }
   };
+
+  console.log(gadChatbotOutput, "line40");
 
   const handleSearch = async () => {
     stopListening();
@@ -45,47 +47,125 @@ const JalJeevanBot = () => {
     // localStorage.setItem("procurementInput", JSON.stringify(arr));
     setSearchText("");
     setLoading(true);
+    setMessages([]);
+
     try {
-      let res = await axios.post(
-        `${API_URL}pre_analyze`,
-        {
-          question: searchText || arr[arr.length - 1],
+      const response = await fetch(`${API_URL}pre_analyze_stream`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
         },
-        {
-          headers: {
-            "Content-Type": "application/json",
-            // Add any other headers your API might require
-          },
-          // timeout: 60000,
-        }
+        body: JSON.stringify({
+          question: searchText || arr[arr.length - 1],
+        }),
+      });
+
+      const data = await response.json();
+      console.log(data, "line62");
+
+      const eventSource = new EventSource(
+        `${API_URL}pre_analyze_stream/events`
       );
 
-      if (res) {
-        let outputArr = gadChatbotOutput;
-        // const base64 = res.data?.image;
-        let responseValues = Object.values(res.data);
-        responseValues = responseValues.map((item) => {
-          const imageBase64 = `data:image/png;base64,${item?.image}`;
-          const tableKeys = Object.keys(item?.json[0]);
-          return { ...item, image: imageBase64, tableHeading: tableKeys };
-        });
+      eventSource.onopen = () => {
+        console.log("Connection to server opened.");
+        setStreamLoading(true);
+      };
 
-        console.log(responseValues, "line72");
+      eventSource.onmessage = (event) => {
+        try {
+          const jsonData = event.data.replace("data: ", "").replace(/'/g, '"');
+          const parsedData = JSON.parse(jsonData);
+          console.log("Received message:", parsedData);
+          setMessages((prevMessages) => [...prevMessages, parsedData]);
+        } catch (error) {
+          console.error("Error parsing Json", error);
+        }
+      };
 
-        outputArr.push(responseValues);
-        setGadChatbotOutput(outputArr);
-        // localStorage.setItem("procurementOutput", JSON.stringify(outputArr));
-        setLoading(false);
-      }
+      eventSource.onerror = (error) => {
+        console.error("EventSource failed:", error);
+        // setMessages([]);
+        setStreamLoading(false);
+        eventSource.close();
+      };
+
+      return () => {
+        console.log("hello");
+        setMessages([]);
+        setStreamLoading(false);
+        eventSource.close();
+      };
     } catch (error) {
-      console.log("there is some error", error.message);
-      setLoading(false);
+      console.error("Fetch failed:", error);
       let outputArr = gadChatbotOutput;
-      outputArr.push("something went wrong");
+      outputArr.push(["something went wrong"]);
       setGadChatbotOutput(outputArr);
-      // localStorage.setItem("procurementOutput", JSON.stringify({ outputArr }));
+      setLoading(false);
     }
+
+    // try {
+    //   let res = await axios.post(
+    //     `${API_URL}pre_analyze`,
+    //     {
+    //       question: searchText || arr[arr.length - 1],
+    //     },
+    //     {
+    //       headers: {
+    //         "Content-Type": "application/json",
+    //         // Add any other headers your API might require
+    //       },
+    //       // timeout: 60000,
+    //     }
+    //   );
+
+    //   if (res) {
+    //     let outputArr = gadChatbotOutput;
+    //     // const base64 = res.data?.image;
+    //     let responseValues = Object.values(res.data);
+    //     responseValues = responseValues.map((item) => {
+    //       const imageBase64 = `data:image/png;base64,${item?.image}`;
+    //       const tableKeys = Object.keys(item?.json[0]);
+    //       return { ...item, image: imageBase64, tableHeading: tableKeys };
+    //     });
+
+    //     console.log(responseValues, "line72");
+
+    //     outputArr.push(responseValues);
+    //     setGadChatbotOutput(outputArr);
+    //     // localStorage.setItem("procurementOutput", JSON.stringify(outputArr));
+    //     setLoading(false);
+    //   }
+    // } catch (error) {
+    //   console.log("there is some error", error.message);
+    //   setLoading(false);
+    //   let outputArr = gadChatbotOutput;
+    //   outputArr.push("something went wrong");
+    //   setGadChatbotOutput(outputArr);
+    //   // localStorage.setItem("procurementOutput", JSON.stringify({ outputArr }));
+    // }
   };
+
+  useEffect(() => {
+    // console.log(messages, "line130");
+    if (messages.length > 0) {
+      let outputArr = gadChatbotOutput;
+      let responseValues = messages;
+      responseValues = responseValues.map((item) => {
+        const imageBase64 = `data:image/png;base64,${item?.image}`;
+        const tableKeys = Object.keys(item?.json[0]);
+        return { ...item, image: imageBase64, tableHeading: tableKeys };
+      });
+      console.log(responseValues, "line72");
+      if (gadChatbotInput.length <= gadChatbotOutput.length) {
+        outputArr.pop();
+      }
+      outputArr.push(responseValues);
+      setGadChatbotOutput(outputArr);
+      // localStorage.setItem("procurementOutput", JSON.stringify(outputArr));
+      setLoading(false);
+    }
+  }, [messages]);
 
   const handleCopy = (text) => {
     navigator.clipboard?.writeText(text);
@@ -106,57 +186,6 @@ const JalJeevanBot = () => {
 
   const handleRegenerate = () => {
     handleSearch();
-  };
-
-  const loadImage = (src) => {
-    return new Promise((resolve) => {
-      const img = new Image();
-      img.src = src;
-      img.onload = () => resolve(img);
-    });
-  };
-
-  const generatePdf = async (pdfData) => {
-    const doc = new jsPDF();
-    doc.setFontSize(20);
-    doc.text("Report", 20, 20);
-    for (let index = 0; index < pdfData.length; index++) {
-      if (index !== 0) {
-        doc.addPage();
-      }
-      // console.log(item, "line115");
-      const data = pdfData[index].json;
-      // Add title
-      // Add insights text
-      doc.setFontSize(14);
-      doc.text("Insights:", 20, 30);
-      doc.setFontSize(12);
-      const insightsText = doc.splitTextToSize(pdfData[index].insights, 180); // Split text to fit within the margin
-      doc.text(insightsText, 20, 40);
-
-      // Add image
-      const imageElement = await loadImage(pdfData[index].image);
-      const imageYPosition = 60;
-      doc.addImage(imageElement, "JPEG", 15, imageYPosition, 180, 160);
-      // Add table
-      if (data.length > 0) {
-        const headers = ["#", ...Object.keys(data[0])]; // Add index column header
-        const tableData = data?.map((item, index) => [
-          index + 1,
-          ...Object.values(item),
-        ]);
-
-        doc.autoTable({
-          head: [headers],
-          body: tableData,
-          startY: imageYPosition + 160 + 10, // Add a small margin after the image
-        });
-      }
-      // if (index === pdfData.length - 1) {
-
-      // }
-    }
-    doc.save("report.pdf");
   };
 
   useEffect(() => {
@@ -453,12 +482,18 @@ const JalJeevanBot = () => {
                                     </table>
                                   </div>
                                 </div>
-                                <div className="w-full mt-[20px] px-[10px] py-[10px] text-center border rounded-lg bg-gray-50 shadow-md ">
+                                {/* <div className="w-full mt-[20px] px-[10px] py-[10px] text-center border rounded-lg bg-gray-50 shadow-md ">
                                   <h1 className="text-[20px] font-medium ">
                                     Result
                                   </h1>
                                   <p>{item?.result}</p>
-                                </div>
+                                </div> */}
+                                {index === gadChatbotInput.length - 1 &&
+                                  streamLoading && (
+                                    <div className="text-left mx-5 my-5 max-w-[70%] ">
+                                      <ThreeDotsLoader />
+                                    </div>
+                                  )}
                                 {mainIndex ===
                                   gadChatbotOutput[index].length - 1 && (
                                   <div className="mt-3 flex gap-x-1 ">
